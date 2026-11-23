@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Klasifikasi Kepribadian — Random Forest | UTS ML</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
+  <!-- Lenis smooth scroll -->
+  <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#hero" class="nav-brand">🧠 PersonalityRF</a>
+      <div class="nav-links">
+        <a href="#questionnaire">Kuesioner</a>
+        <a href="#results">Hasil</a>
+        <a href="#metrics">Metrik Model</a>
+        <a href="#about">Tentang</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero" id="hero">
+    <div class="container hero-content">
+      <h1 class="split-title" data-split>
+        Klasifikasi Potensi Kepribadian Ekstrovert dan Introvert Berdasarkan Pola Interaksi Sosial Harian
+      </h1>
+      <p class="hero-sub">
+        Menggunakan algoritma <strong>Random Forest Classifier</strong> dengan akurasi
+        <strong>{{ (eval_metrics.accuracy * 100)|round(1) }}%</strong>
+        pada dataset Kaggle <code>personality_datasert.csv</code>.
+      </p>
+      <a href="#questionnaire" class="btn btn-primary hero-cta">Mulai Prediksi →</a>
+    </div>
+  </section>
+
+  <!-- ===== QUESTIONNAIRE ===== -->
+  <section class="section" id="questionnaire">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Kuesioner Pola Interaksi Sosial</h2>
+      <p class="section-desc">Isi kuesioner berikut berdasarkan kebiasaan harian Anda, atau gunakan preset profil contoh.</p>
+
+      <!-- Preset buttons -->
+      <div class="preset-row">
+        <button class="btn btn-outline preset-btn" data-preset="extrovert">Ekstrovert Aktif</button>
+        <button class="btn btn-outline preset-btn" data-preset="balanced">Seimbang</button>
+        <button class="btn btn-outline preset-btn" data-preset="introvert">Introvert Tenang</button>
+      </div>
+
+      <form id="predict-form" class="questionnaire-grid" autocomplete="off">
+        <!-- Numerical features -->
+        {% for col in num_cols %}
+        <div class="form-card anim-card">
+          <label for="inp-{{ col }}">{{ feature_labels[col] }}</label>
+          <div class="range-wrap">
+            <input
+              type="range"
+              id="inp-{{ col }}"
+              name="{{ col }}"
+              min="{{ feature_meta[col].min|int }}"
+              max="{{ feature_meta[col].max|int }}"
+              value="{{ feature_meta[col].median|int }}"
+              step="1"
+            />
+            <output class="range-val" for="inp-{{ col }}">{{ feature_meta[col].median|int }}</output>
+          </div>
+          <div class="range-labels">
+            <span>{{ feature_meta[col].min|int }}</span>
+            <span>{{ feature_meta[col].max|int }}</span>
+          </div>
+        </div>
+        {% endfor %}
+
+        <!-- Categorical features -->
+        {% for col in cat_cols %}
+        <div class="form-card anim-card">
+          <label>{{ feature_labels[col] }}</label>
+          <div class="toggle-group">
+            {% for cat in feature_meta[col].categories %}
+            <label class="toggle-label">
+              <input type="radio" name="{{ col }}" value="{{ cat }}" {% if loop.first %}checked{% endif %} />
+              <span class="toggle-btn">{{ 'Ya' if cat == 'Yes' else 'Tidak' }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-predict" id="btn-predict">
+            <span class="btn-text">Prediksi Kepribadian</span>
+            <span class="btn-loader" hidden></span>
+          </button>
+          <button type="reset" class="btn btn-outline btn-reset">Reset</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== RESULTS ===== -->
+  <section class="section section-alt" id="results">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Hasil Prediksi</h2>
+
+      <!-- Placeholder before prediction -->
+      <div id="result-placeholder" class="result-placeholder">
+        <p>Isi kuesioner di atas dan klik <strong>Prediksi Kepribadian</strong> untuk melihat hasil.</p>
+      </div>
+
+      <!-- Result panel (hidden initially) -->
+      <div id="result-panel" class="result-panel" hidden>
+        <!-- Prediction card -->
+        <div class="pred-card anim-card" id="pred-card">
+          <div class="pred-label" id="pred-label">—</div>
+          <div class="pred-proba-row">
+            <div class="proba-bar-wrap">
+              <div class="proba-bar proba-intro" id="proba-intro-bar" style="width:50%"></div>
+              <div class="proba-bar proba-extro" id="proba-extro-bar" style="width:50%"></div>
+            </div>
+            <div class="proba-labels">
+              <span id="proba-intro-txt">Introvert: 50%</span>
+              <span id="proba-extro-txt">Extrovert: 50%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dominant factors -->
+        <div class="factors-card anim-card">
+          <h3>Faktor Dominan</h3>
+          <ul id="factors-list" class="factors-list"></ul>
+        </div>
+
+        <!-- Comparison chart -->
+        <div class="chart-card anim-card chart-card-radar">
+          <h3>Profil Anda vs Rata-rata Kelas</h3>
+          <div class="chart-wrap chart-wrap-radar">
+            <canvas id="chart-comparison"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURE IMPORTANCE ===== -->
+  <section class="section" id="importance">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Feature Importance — Random Forest</h2>
+      <p class="section-desc">Peringkat kontribusi setiap fitur dalam model klasifikasi.</p>
+      <div class="chart-card anim-card chart-card-wide">
+        <div class="chart-wrap">
+          <canvas id="chart-importance"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SESSION HISTORY ===== -->
+  <section class="section section-alt" id="history">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Riwayat Prediksi Sesi</h2>
+      <div id="history-empty" class="result-placeholder">
+        <p>Belum ada riwayat prediksi.</p>
+      </div>
+      <div id="history-content" hidden>
+        <div class="chart-card anim-card chart-card-wide">
+          <div class="chart-wrap">
+            <canvas id="chart-history"></canvas>
+          </div>
+        </div>
+        <div class="history-table-wrap anim-card">
+          <table class="history-table" id="history-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Prediksi</th>
+                <th>P(Introvert)</th>
+                <th>P(Extrovert)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-outline btn-clear-history" id="btn-clear-history">Hapus Riwayat</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MODEL METRICS ===== -->
+  <section class="section" id="metrics">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Metrik Evaluasi Model</h2>
+      <p class="section-desc">Hasil evaluasi pada test set (20%) dari Google Colab notebook.</p>
+
+      <div class="metrics-grid">
+        <div class="metric-card anim-card">
+          <div class="metric-value">{{ (eval_metrics.accuracy * 100)|round(1) }}%</div>
+          <div class="metric-name">Accuracy</div>
+        </div>
+        <div class="metric-card anim-card">
+          <div class="metric-value">{{ (eval_metrics.precision * 100)|round(1) }}%</div>
+          <div class="metric-name">Precision</div>
+        </div>
+        <div class="metric-card anim-card">
+          <div class="metric-value">{{ (eval_metrics.recall * 100)|round(1) }}%</div>
+          <div class="metric-name">Recall</div>
+        </div>
+        <div class="metric-card anim-card">
+          <div class="metric-value">{{ (eval_metrics.f1_score * 100)|round(1) }}%</div>
+          <div class="metric-name">F1-Score</div>
+        </div>
+      </div>
+
+      <!-- Confusion Matrix -->
+      <div class="cm-card anim-card">
+        <h3>Confusion Matrix</h3>
+        <table class="cm-table">
+          <thead>
+            <tr><th></th><th>Pred: Introvert</th><th>Pred: Extrovert</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Aktual: Introvert</th>
+              <td class="cm-tp">{{ confusion_matrix[0][0] }}</td>
+              <td class="cm-fn">{{ confusion_matrix[0][1] }}</td>
+            </tr>
+            <tr>
+              <th>Aktual: Extrovert</th>
+              <td class="cm-fp">{{ confusion_matrix[1][0] }}</td>
+              <td class="cm-tn">{{ confusion_matrix[1][1] }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Hyperparameters -->
+      <div class="hp-card anim-card">
+        <h3>Hyperparameter Terbaik</h3>
+        <div class="hp-grid">
+          <div class="hp-item"><span class="hp-label">n_estimators</span><span class="hp-val">{{ hyperparams.n_estimators }}</span></div>
+          <div class="hp-item"><span class="hp-label">max_depth</span><span class="hp-val">{{ hyperparams.max_depth if hyperparams.max_depth else 'None' }}</span></div>
+          <div class="hp-item"><span class="hp-label">random_state</span><span class="hp-val">42</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ABOUT ===== -->
+  <section class="section section-alt" id="about">
+    <div class="container">
+      <h2 class="section-title split-title" data-split>Tentang Proyek</h2>
+      <div class="about-grid">
+        <div class="about-card anim-card">
+          <h3>Algoritma</h3>
+          <p><strong>Random Forest Classifier</strong> — ensemble dari banyak decision tree dengan bagging untuk meningkatkan akurasi dan mengurangi overfitting.</p>
+        </div>
+        <div class="about-card anim-card">
+          <h3>Dataset</h3>
+          <p>Dataset terbuka Kaggle <a href="https://www.kaggle.com/datasets/rakeshkapilavai/extrovert-vs-introvert-behavior-data" target="_blank" rel="noopener"><code>personality_datasert.csv</code></a> — 2900 sampel dengan 7 fitur pola interaksi sosial harian dan label kepribadian (Extrovert / Introvert).</p>
+        </div>
+        <div class="about-card anim-card">
+          <h3>Repositori</h3>
+          <p>Kode sumber tersedia di GitHub: <a href="https://github.com/diazdynsa/UTS-MachineLearning-Diaz" target="_blank" rel="noopener">UTS-MachineLearning-Diaz</a>. Training notebook siap dijalankan di Google Colab.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="container">
+      <p>UTS Pembelajaran Mesin — Klasifikasi Kepribadian dengan Random Forest</p>
+    </div>
+  </footer>
+
+  <!-- Inject metadata for JS -->
+  <script>
+    window.__META__ = {
+      featureImportance: {{ feature_importance|tojson }},
+      meanPerClass: {{ mean_per_class|tojson }},
+      numCols: {{ num_cols|tojson }},
+      catCols: {{ cat_cols|tojson }},
+      featureLabels: {{ feature_labels|tojson }},
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
