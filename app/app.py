@@ -89,6 +89,7 @@ for item in FEATURE_IMPORTANCE:
 # Routes
 # ---------------------------------------------------------------------------
 @app.route("/")
+@app.route("/api/index")
 def index():
     """Render main page with metadata injected."""
     return render_template(
@@ -103,6 +104,12 @@ def index():
         num_cols=NUM_COLS,
         cat_cols=CAT_COLS,
     )
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Handle favicon requests gracefully."""
+    return "", 204
 
 
 @app.route("/api/predict", methods=["POST"])

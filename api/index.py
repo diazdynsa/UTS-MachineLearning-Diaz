@@ -23,5 +23,21 @@ except (ImportError, ModuleNotFoundError):
     import app as _app_module
     app = getattr(_app_module, "app", _app_module)
 
+class VercelMiddleware:
+    """WSGI middleware to ensure correct PATH_INFO when Vercel rewrites routes."""
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        matched_path = environ.get("HTTP_X_MATCHED_PATH")
+        if matched_path:
+            environ["PATH_INFO"] = matched_path
+        elif environ.get("PATH_INFO") in ("/api/index", "/api/index.py"):
+            environ["PATH_INFO"] = "/"
+        return self.wsgi_app(environ, start_response)
+
+# Pasang middleware ke wsgi_app Flask
+app.wsgi_app = VercelMiddleware(app.wsgi_app)
+
 # Entrypoint WSGI untuk Vercel Serverless
 app = app
