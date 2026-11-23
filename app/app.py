@@ -29,6 +29,14 @@ app.secret_key = os.environ.get("SECRET_KEY", "uts-ml-diaz-secret-2024")
 MODEL_PATH = os.path.join(ROOT_DIR, "model", "personality_rf_model.pkl")
 META_PATH = os.path.join(ROOT_DIR, "model", "model_metadata.json")
 
+# Compatibility shim for unpickling ColumnTransformer across scikit-learn versions
+try:
+    import sklearn.compose._column_transformer as _ct
+    if not hasattr(_ct, "_RemainderColsList"):
+        _ct._RemainderColsList = type("_RemainderColsList", (list,), {})
+except Exception:
+    pass
+
 pipeline = joblib.load(MODEL_PATH)
 
 with open(META_PATH, "r", encoding="utf-8") as f:
