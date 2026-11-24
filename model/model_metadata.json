@@ -68,49 +68,49 @@
     }
   },
   "mean_per_class": {
-    "Introvert": {
-      "Time_spent_Alone": 6.9257,
-      "Social_event_attendance": 1.9313,
-      "Going_outside": 1.4,
-      "Friends_circle_size": 3.3894,
-      "Post_frequency": 1.5256
-    },
     "Extrovert": {
       "Time_spent_Alone": 2.1299,
       "Social_event_attendance": 5.9722,
       "Going_outside": 4.5923,
       "Friends_circle_size": 9.0704,
       "Post_frequency": 5.6023
+    },
+    "Introvert": {
+      "Time_spent_Alone": 6.9257,
+      "Social_event_attendance": 1.9313,
+      "Going_outside": 1.4,
+      "Friends_circle_size": 3.3894,
+      "Post_frequency": 1.5256
     }
   },
   "feature_importance": [
     {
       "feature": "cat__Drained_after_socializing_Yes",
-      "importance": 0.303119
+      "importance": 0.327467
     },
     {
       "feature": "cat__Stage_fear_Yes",
-      "importance": 0.262903
-    },
-    {
-      "feature": "num__Post_frequency",
-      "importance": 0.157025
+      "importance": 0.175342
     },
     {
       "feature": "num__Social_event_attendance",
-      "importance": 0.143846
-    },
-    {
-      "feature": "num__Time_spent_Alone",
-      "importance": 0.069163
+      "importance": 0.138343
     },
     {
       "feature": "num__Going_outside",
-      "importance": 0.053476
+      "importance": 0.136057
+    },
+    {
+      "feature": "num__Time_spent_Alone",
+      "importance": 0.107915
+    },
+    {
+      "feature": "num__Post_frequency",
+      "importance": 0.105018
     },
     {
       "feature": "num__Friends_circle_size",
-      "importance": 0.010467
+      "importance": 0.009858
     }
   ],
   "evaluation_metrics": {
